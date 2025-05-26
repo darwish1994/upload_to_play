@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Plus, LogOut } from 'lucide-react';
+import { LayoutDashboard, Plus, LogOut, Users } from 'lucide-react';
 import { supabase } from '../../services/supabaseClient';
 import Button from '../ui/Button';
 
@@ -8,17 +8,40 @@ const Navbar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const [isAdmin, setIsAdmin] = React.useState(false);
   
   React.useEffect(() => {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setIsAuthenticated(!!user);
+
+      if (user) {
+        const { data } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        
+        setIsAdmin(data?.role === 'admin');
+      }
     };
 
     checkAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setIsAuthenticated(!!session);
+      
+      if (session?.user) {
+        const { data } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+        
+        setIsAdmin(data?.role === 'admin');
+      } else {
+        setIsAdmin(false);
+      }
     });
 
     return () => {
@@ -51,6 +74,19 @@ const Navbar: React.FC = () => {
                 >
                   <LayoutDashboard size={18} className="mr-1" />
                   Dashboard
+                </Link>
+              )}
+              {isAdmin && (
+                <Link
+                  to="/users"
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                    location.pathname === '/users'
+                      ? 'border-blue-500 text-gray-900'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Users size={18} className="mr-1" />
+                  Users
                 </Link>
               )}
               <Link
@@ -97,6 +133,19 @@ const Navbar: React.FC = () => {
             >
               <LayoutDashboard size={18} className="inline-block mr-1" />
               Dashboard
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
+              to="/users"
+              className={`flex-1 py-2 text-center text-sm font-medium ${
+                location.pathname === '/users'
+                  ? 'text-blue-600 border-b-2 border-blue-500'
+                  : 'text-gray-500'
+              }`}
+            >
+              <Users size={18} className="inline-block mr-1" />
+              Users
             </Link>
           )}
           <Link

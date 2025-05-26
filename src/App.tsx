@@ -6,6 +6,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import PreviewPage from './pages/PreviewPage';
 import EditPage from './pages/EditPage';
 import LoginPage from './pages/LoginPage';
+import UsersPage from './pages/UsersPage';
 import Navbar from './components/layout/Navbar';
 import { supabase } from './services/supabaseClient';
 
@@ -60,6 +61,14 @@ function App() {
                 </RequireAuth>
               } 
             />
+            <Route 
+              path="/users" 
+              element={
+                <RequireAuth adminOnly>
+                  <UsersPage />
+                </RequireAuth>
+              } 
+            />
             <Route path="/preview/:id" element={<PreviewPage />} />
             <Route path="/edit/:id" element={<EditPage />} />
           </Routes>
@@ -70,20 +79,42 @@ function App() {
 }
 
 // Auth guard component
-const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const RequireAuth: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({ children, adminOnly = false }) => {
   const [isAuthenticated, setIsAuthenticated] = React.useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setIsAuthenticated(!!user);
+
+      if (user) {
+        const { data } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        
+        setIsAdmin(data?.role === 'admin');
+      }
     };
 
     checkAuth();
 
-    // Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setIsAuthenticated(!!session);
+      
+      if (session?.user) {
+        const { data } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+        
+        setIsAdmin(data?.role === 'admin');
+      } else {
+        setIsAdmin(false);
+      }
     });
 
     return () => {
@@ -91,7 +122,7 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     };
   }, []);
 
-  if (isAuthenticated === null) {
+  if (isAuthenticated === null || (adminOnly && isAdmin === null)) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
@@ -99,7 +130,15 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     );
   }
 
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (adminOnly && !isAdmin) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  return <>{children}</>;
 };
 
 export default App;
