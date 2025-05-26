@@ -15,7 +15,7 @@ const initializeAdmin = async () => {
   
   if (!user) {
     const { error } = await supabase.auth.signUp({
-      email: 'admin@gmail.com',
+      email: 'admin.test@example.com',
       password: '123123',
     });
 
