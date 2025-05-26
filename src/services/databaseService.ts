@@ -23,12 +23,15 @@ const uploadFile = async (file: File, bucket: string, path: string): Promise<str
 
 // Create a new submission
 export const createSubmission = async (formData: FormData): Promise<AppSubmission> => {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Check user authentication status
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError) {
+    throw new Error('Authentication error: ' + authError.message);
+  }
 
   if (!user) {
-    throw new Error('User not authenticated');
+    throw new Error('User not authenticated. Please sign in to submit your application.');
   }
 
   // Upload logo
@@ -134,12 +137,15 @@ export const getSubmissionById = async (id: string): Promise<AppSubmission | und
 
 // Update a submission
 export const updateSubmission = async (id: string, formData: FormData): Promise<AppSubmission | undefined> => {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Check user authentication status
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError) {
+    throw new Error('Authentication error: ' + authError.message);
+  }
 
   if (!user) {
-    throw new Error('User not authenticated');
+    throw new Error('User not authenticated. Please sign in to update your application.');
   }
 
   // Get existing submission
@@ -201,6 +207,13 @@ export const updateSubmission = async (id: string, formData: FormData): Promise<
 
 // Delete a submission
 export const deleteSubmission = async (id: string): Promise<boolean> => {
+  // Check user authentication status
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error('User not authenticated. Please sign in to delete your application.');
+  }
+
   // Get the submission first to get file paths
   const submission = await getSubmissionById(id);
   if (!submission) {

@@ -3,20 +3,34 @@ import Button from '../ui/Button';
 import { useFormContext } from '../../context/FormContext';
 import { createSubmission } from '../../services/databaseService';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../services/supabaseClient';
 
 const ConfirmationStep: React.FC = () => {
   const { formData, prevStep, resetForm } = useFormContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setError(null);
+    
     try {
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        setError('Please sign in to submit your application');
+        navigate('/login'); // Assuming you have a login route
+        return;
+      }
+
       await createSubmission(formData);
       resetForm();
       navigate('/admin');
     } catch (error) {
       console.error('Error submitting form:', error);
+      setError(error instanceof Error ? error.message : 'An error occurred while submitting the form');
     } finally {
       setIsSubmitting(false);
     }
@@ -26,6 +40,12 @@ const ConfirmationStep: React.FC = () => {
     <div className="max-w-2xl mx-auto">
       <div className="bg-white shadow-md rounded-lg p-6">
         <h2 className="text-xl font-semibold mb-6 text-gray-800">Confirm Your Information</h2>
+        
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-red-600">{error}</p>
+          </div>
+        )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
