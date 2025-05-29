@@ -15,12 +15,12 @@ const initializeAdmin = async () => {
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email: 'admin.test@example.com',
       password: '123123',
     });
 
-    if (!error) {
+    if (!signUpError && signUpData.user) {
       // Set user as verified since we're creating an admin
       const { error: updateError } = await supabase.auth.updateUser({
         email_confirm: true
@@ -28,7 +28,24 @@ const initializeAdmin = async () => {
 
       if (updateError) {
         console.error('Error confirming admin email:', updateError);
+        return;
       }
+
+      // Create corresponding entry in public.users table
+      const { error: insertError } = await supabase
+        .from('users')
+        .insert({
+          id: signUpData.user.id,
+          name: 'Admin',
+          email: 'admin.test@example.com',
+          role: 'admin'
+        });
+
+      if (insertError) {
+        console.error('Error creating admin user record:', insertError);
+      }
+    } else if (signUpError) {
+      console.error('Error signing up admin:', signUpError);
     }
   }
 };
