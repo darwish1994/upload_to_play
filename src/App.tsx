@@ -16,7 +16,8 @@ const initializeAdmin = async () => {
     // First check if we can connect to Supabase
     const { data: { user }, error: getUserError } = await supabase.auth.getUser();
     
-    if (getUserError) {
+    // Only return if there's a real connection error, not "Auth session missing!"
+    if (getUserError && getUserError.message !== 'Auth session missing!') {
       console.error('Error connecting to Supabase:', getUserError);
       return;
     }
