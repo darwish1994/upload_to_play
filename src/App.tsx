@@ -89,7 +89,7 @@ function App() {
               <Navbar />
               <main className="pb-12">
                 <Routes>
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/\" element={<Navigate to="/dashboard\" replace />} />
                   <Route path="/dashboard" element={<AdminDashboardPage />} />
                   <Route 
                     path="/new-submission" 
