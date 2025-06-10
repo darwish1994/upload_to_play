@@ -209,7 +209,7 @@ const RequireAuth: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> 
   }
 
   if (adminOnly && !isAdmin) {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/admin\" replace />;
   }
 
   return <>{children}</>;
