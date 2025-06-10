@@ -28,26 +28,31 @@ const initializeAdmin = async () => {
     }
 
     // Check if admin already exists in the users table
-    const { data: existingAdmin, error: checkError } = await supabase
+    const { data: existingAdmins, error: checkError } = await supabase
       .from('users')
       .select('id')
-      .eq('email', 'admin.test@example.com')
-      .single();
+      .eq('email', 'admin.test@example.com');
 
-    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "not found" error
+    if (checkError) {
       console.error('Error checking for existing admin:', checkError);
       return;
     }
 
     // If admin already exists, don't create another one
-    if (existingAdmin) {
+    if (existingAdmins && existingAdmins.length > 0) {
       return;
     }
 
-    // Create admin user
+    // Create admin user with metadata
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email: 'admin.test@example.com',
       password: '123123',
+      options: {
+        data: {
+          name: 'Admin',
+          role: 'admin'
+        }
+      }
     });
 
     if (signUpError) {
@@ -56,21 +61,7 @@ const initializeAdmin = async () => {
     }
 
     if (signUpData.user) {
-      // Create corresponding entry in public.users table
-      const { error: insertError } = await supabase
-        .from('users')
-        .insert({
-          id: signUpData.user.id,
-          name: 'Admin',
-          email: 'admin.test@example.com',
-          role: 'admin'
-        });
-
-      if (insertError) {
-        console.error('Error creating admin user record:', insertError);
-      } else {
-        console.log('Admin user created successfully');
-      }
+      console.log('Admin user created successfully');
     }
   } catch (error) {
     console.error('Unexpected error during admin initialization:', error);
@@ -98,7 +89,7 @@ function App() {
               <Navbar />
               <main className="pb-12">
                 <Routes>
-                  <Route path="/\" element={<Navigate to="/dashboard\" replace />} />
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/dashboard" element={<AdminDashboardPage />} />
                   <Route 
                     path="/new-submission" 
@@ -137,7 +128,8 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         
-        if (error) {
+        // Don't treat "Auth session missing!" as an error - it just means no user is logged in
+        if (error && error.message !== 'Auth session missing!') {
           console.error('Error getting user:', error);
           setIsAuthenticated(false);
           return;
