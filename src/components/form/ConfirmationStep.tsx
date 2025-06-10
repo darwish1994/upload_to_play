@@ -21,13 +21,13 @@ const ConfirmationStep: React.FC = () => {
       
       if (!user) {
         setError('Please sign in to submit your application');
-        navigate('/login'); // Assuming you have a login route
+        navigate('/login');
         return;
       }
 
       await createSubmission(formData);
       resetForm();
-      navigate('/admin');
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error submitting form:', error);
       setError(error instanceof Error ? error.message : 'An error occurred while submitting the form');

@@ -88,47 +88,49 @@ function App() {
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <main className="pb-12">
-          <Routes>
-            <Route 
-              path="/" 
-              element={
-                <FormProvider>
-                  <AppSubmissionPage />
-                </FormProvider>
-              } 
-            />
-            <Route path="/login" element={<LoginPage />} />
-            <Route 
-              path="/admin" 
-              element={
-                <RequireAuth>
-                  <AdminDashboardPage />
-                </RequireAuth>
-              } 
-            />
-            <Route 
-              path="/users" 
-              element={
-                <RequireAuth adminOnly>
-                  <UsersPage />
-                </RequireAuth>
-              } 
-            />
-            <Route path="/preview/:id" element={<PreviewPage />} />
-            <Route path="/edit/:id" element={<EditPage />} />
-          </Routes>
-        </main>
+        <Routes>
+          {/* Login page - no navbar */}
+          <Route path="/login" element={<LoginPage />} />
+          
+          {/* Protected routes with navbar */}
+          <Route path="/*" element={
+            <RequireAuth>
+              <Navbar />
+              <main className="pb-12">
+                <Routes>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<AdminDashboardPage />} />
+                  <Route 
+                    path="/new-submission" 
+                    element={
+                      <FormProvider>
+                        <AppSubmissionPage />
+                      </FormProvider>
+                    } 
+                  />
+                  <Route 
+                    path="/users" 
+                    element={
+                      <RequireAdminRole>
+                        <UsersPage />
+                      </RequireAdminRole>
+                    } 
+                  />
+                  <Route path="/preview/:id" element={<PreviewPage />} />
+                  <Route path="/edit/:id" element={<EditPage />} />
+                </Routes>
+              </main>
+            </RequireAuth>
+          } />
+        </Routes>
       </div>
     </Router>
   );
 }
 
 // Auth guard component
-const RequireAuth: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({ children, adminOnly = false }) => {
+const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = React.useState<boolean | null>(null);
-  const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -142,25 +144,9 @@ const RequireAuth: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> 
         }
 
         setIsAuthenticated(!!user);
-
-        if (user) {
-          const { data, error: roleError } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-          
-          if (roleError) {
-            console.error('Error getting user role:', roleError);
-            setIsAdmin(false);
-          } else {
-            setIsAdmin(data?.role === 'admin');
-          }
-        }
       } catch (error) {
         console.error('Unexpected error in auth check:', error);
         setIsAuthenticated(false);
-        setIsAdmin(false);
       }
     };
 
@@ -168,7 +154,62 @@ const RequireAuth: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> 
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setIsAuthenticated(!!session);
-      
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  if (isAuthenticated === null) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// Admin role guard component
+const RequireAdminRole: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkAdminRole = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          const { data, error } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+          
+          if (error) {
+            console.error('Error getting user role:', error);
+            setIsAdmin(false);
+          } else {
+            setIsAdmin(data?.role === 'admin');
+          }
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (error) {
+        console.error('Unexpected error getting user role:', error);
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdminRole();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         try {
           const { data, error } = await supabase
@@ -197,7 +238,7 @@ const RequireAuth: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> 
     };
   }, []);
 
-  if (isAuthenticated === null || (adminOnly && isAdmin === null)) {
+  if (isAdmin === null) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
@@ -205,12 +246,8 @@ const RequireAuth: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> 
     );
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (adminOnly && !isAdmin) {
-    return <Navigate to="/admin\" replace />;
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
